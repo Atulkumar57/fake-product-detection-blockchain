@@ -14,9 +14,10 @@ contract ProductVerification {
     address public owner;
     mapping(bytes32 => Product) private products;
     mapping(address => bool) public authorizedManufacturers;
+    mapping(address => string) public manufacturerNames;
 
     event ProductRegistered(bytes32 indexed key, string productId, string manufacturer);
-    event ManufacturerAuthorized(address indexed account);
+    event ManufacturerAuthorized(address indexed account, string manufacturerName);
     event ManufacturerRevoked(address indexed account);
 
     modifier onlyOwner() {
@@ -32,15 +33,24 @@ contract ProductVerification {
     constructor() {
         owner = msg.sender;
         authorizedManufacturers[msg.sender] = true;
+        manufacturerNames[msg.sender] = "Owner";
     }
 
-    function authorizeManufacturer(address account) external onlyOwner {
+    function authorizeManufacturer(address account, string calldata manufacturerName)
+        external
+        onlyOwner
+    {
+        require(account != address(0), "Invalid account");
+        require(bytes(manufacturerName).length > 0, "Manufacturer name required");
+
         authorizedManufacturers[account] = true;
-        emit ManufacturerAuthorized(account);
+        manufacturerNames[account] = manufacturerName;
+        emit ManufacturerAuthorized(account, manufacturerName);
     }
 
     function revokeManufacturer(address account) external onlyOwner {
         authorizedManufacturers[account] = false;
+        manufacturerNames[account] = "";
         emit ManufacturerRevoked(account);
     }
 
@@ -50,8 +60,18 @@ contract ProductVerification {
         string calldata manufacturer,
         uint256 manufacturedAt
     ) external onlyAuthorized {
+        require(bytes(productId).length > 0, "Product ID required");
+        require(bytes(name).length > 0, "Product name required");
+        require(bytes(manufacturer).length > 0, "Manufacturer required");
+        require(manufacturedAt <= block.timestamp, "Manufactured-at cannot be in the future");
+        require(
+            keccak256(bytes(manufacturerNames[msg.sender])) == keccak256(bytes(manufacturer)),
+            "Manufacturer name mismatch"
+        );
+
         bytes32 key = keccak256(abi.encodePacked(productId));
         require(!products[key].exists, "Product already registered");
+
         products[key] = Product({
             productId: productId,
             name: name,
@@ -60,6 +80,7 @@ contract ProductVerification {
             registeredBy: msg.sender,
             exists: true
         });
+
         emit ProductRegistered(key, productId, manufacturer);
     }
 

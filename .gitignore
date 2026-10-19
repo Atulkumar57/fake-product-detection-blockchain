@@ -1,0 +1,11 @@
+node_modules/
+artifacts/
+cache/
+coverage/
+deployment.json
+__pycache__/
+*.py[cod]
+.venv/
+.venv-*/
+venv/
+.env
